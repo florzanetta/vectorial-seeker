@@ -2,17 +2,22 @@
 
 # Version number for this release
 # VERSION_NUMBER = "1.0.0"
-THIS_VERSION = "0.0.0-SNAPSHOT"
+THIS_VERSION = "1.0.0"
 # Group identifier for your projects
 GROUP = "dlc_final"
 COPYRIGHT = ""
 
 # Specify Maven 2.0 remote repositories here, like this:
 repositories.remote << "http://repo1.maven.org/maven2"
+# repositories.remote << 'http://www.ibiblio.org/maven2/'
+repositories.release_to = 'sftp://flor@ubuntu-vm/home/flor'
 
 # Requirements
 MYSQL = 'mysql:mysql-connector-java:jar:5.1.34'
 JAVAX_SERVLET = 'javax.servlet:javax.servlet-api:jar:3.0.1'
+
+# Main classes
+backend_main = "com.dlc.backend.Main"
 
 desc "The Dlc_final project"
 define "dlc_final" do
@@ -20,19 +25,29 @@ define "dlc_final" do
   project.version = THIS_VERSION
   project.group = GROUP
   manifest["Implementation-Vendor"] = COPYRIGHT
-  # test.compile.with # Add classpath dependencies
 
   desc 'Backend search engine'
   define 'backend' do
     compile.with MYSQL
-    # package :jar
-    package(:jar).with :manifest=>manifest.merge('Main-Class'=>'com.dlc.backend.Main')
+    package(:jar).with :manifest=>manifest.merge('Main-Class'=>backend_main)
+        # 'Class-Path'=>'lib/mysql-connector-java.jar')1
   end
 
   desc 'Frontend AJAX web interface'
   define 'ajax-frontend' do
     compile.with JAVAX_SERVLET
     package :war
+  end
+
+  task :run => :package do
+    project('backend').task("package")
+    puts 'running...'
+    # puts artifact(MYSQL).to_s
+    # puts project('backend').package(:jar).to_s
+    cmd = "java -classpath " + artifact(MYSQL).to_s + ":"
+    cmd += project('backend').package(:jar).to_s +  " " + backend_main
+    puts cmd
+    system(cmd)
   end
 
 end
