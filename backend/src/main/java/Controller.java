@@ -63,10 +63,9 @@ public class Controller {
     public void indexMany() {
         dbc.dropIndex();
         this.indexFileList(false);
-        dbc.commit();
+        // dbc.commit();
         dbc.createIndex();
         dbc.summarize();
-
         dbc.close();
     }
 
@@ -79,6 +78,7 @@ public class Controller {
 
 
     public void indexFileList(Boolean few) {
+        int i = 0;
         for (File file : files_to_index) {
             try {
                 HashMap<String, Integer> h = index.indexFile(file);
@@ -88,14 +88,21 @@ public class Controller {
                 index_count++;
                 if (few) {
                     dbc.summarizeSingleFile(h);
+                } else {
+                    i++;
+                    if (i % 1000 == 0) {
+                        dbc.commit();
+                        // Execute every 1000 items.
+                    }
                 }
             } catch (IOException ex) {
                 Logger.getLogger(Controller.class.getName()).log(Level.SEVERE,
                                                                  null,
                                                                  ex);
             }
-
         } //end for
+        // commit so there are no files uncommited the for ends
+        dbc.commit();
     }
 
 
