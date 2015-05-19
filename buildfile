@@ -19,6 +19,9 @@ JAVAX_SERVLET = 'javax.servlet:javax.servlet-api:jar:3.0.1'
 # Main classes
 backend_main = "com.dlc.backend.Main"
 
+# Custom tasks
+Project.local_task :clear_tables
+
 desc "The Dlc_final project"
 define "dlc_final" do
 
@@ -48,6 +51,13 @@ define "dlc_final" do
     cmd += project('backend').package(:jar).to_s +  " " + backend_main
     puts cmd
     system(cmd)
+  end
+
+  task :clear_tables do
+    post_table = 'create table post(term varchar(140), document varchar(500), freq int(11));'
+    system('echo "drop table nr;" | mysql -u dlcuser -pdlc dlc')
+    system('echo "drop table post; ' + post_table + '" | mysql -u dlcuser -pdlc dlc')
+    system('echo "drop table maxtf;" | mysql -u dlcuser -pdlc dlc')
   end
 
 end
