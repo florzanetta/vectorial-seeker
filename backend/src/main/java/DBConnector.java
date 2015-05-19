@@ -62,14 +62,12 @@ public class DBConnector {
 
             for (Map.Entry<String, Integer> entry : hash.entrySet()) {
 
-                //Map.Entry entry = (Map.Entry<String, Integer>) it.next();
                 String word = entry.getKey();
                 int freq = entry.getValue();
 
                 st.setString(1, word);
                 st.setString(2, path);
                 st.setInt(3, freq);
-                //st.executeUpdate();
 
                 st.addBatch();
                 if ((i + 1) % 2000 == 0) {
@@ -80,43 +78,56 @@ public class DBConnector {
 
             }
             st.executeBatch();
-            //db.commit(); //Cannot commit when autoCommit is enabled.
-            st.close();
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                                                               null,
                                                               ex);
+        } finally {
+            if (st != null) {
+                try {
+                    st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
         }
 
     }
 
 
-    public void save2File() {
-
-    }
+    public void save2File() { }
 
 
     public void createIndex() {
+        Statement st = null;
         try {
-            Statement st = db.createStatement();
+            st = db.createStatement();
             String stm1 = "create index idx_term on post (term); ";
             String stm2 = "create index idx_document on post (document);";
             st.executeUpdate(stm1);
             st.executeUpdate(stm2);
-            st.close();
             System.out.println("CREATE INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                                                               null,
                                                               ex);
+        } finally {
+            if (st != null) {
+                try {
+                    st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
         }
 
     }
 
 
     public void dropIndex() {
+        Statement st = null;
         try {
-            Statement st = db.createStatement();
+            st = db.createStatement();
 
             if (st.executeQuery(
                     "show index from post where Key_name='idx_term';").
@@ -128,19 +139,27 @@ public class DBConnector {
                 getFetchSize() != 0) {
                 st.executeUpdate("drop index idx_document on post;");
             }
-            st.close();
             System.out.println("DROP INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                                                               null,
                                                               ex);
+        } finally {
+            if (st != null) {
+                try {
+                    st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
         }
     }
 
 
     public void summarize() {
+        Statement st = null;
         try {
-            Statement st = db.createStatement();
+            st = db.createStatement();
             DatabaseMetaData m = db.getMetaData();
 
             // rebuild nr table
@@ -159,12 +178,19 @@ public class DBConnector {
                 "create table maxtf select term, max(freq) as maxtf from post group by term;";
             st.executeUpdate(stm2);
 
-            st.close();
             System.out.println("SUMMARIZE");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                                                               null,
                                                               ex);
+        } finally {
+            if (st != null) {
+                try {
+                    st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
         }
     }
 
@@ -180,12 +206,16 @@ public class DBConnector {
 
         String maxtf_q = "select maxtf from maxtf where term='?';";
 
-        ResultSet rs;
-        try {
-            PreparedStatement nr_st = db.prepareStatement(nr_q);
-            PreparedStatement nr_u_st = db.prepareStatement(nr_u);
+        ResultSet rs = null;
+        PreparedStatement nr_st = null;
+        PreparedStatement nr_u_st = null;
+        PreparedStatement maxtf_st = null;
 
-            PreparedStatement maxtf_st = db.prepareStatement(maxtf_q);
+        try {
+            nr_st = db.prepareStatement(nr_q);
+            nr_u_st = db.prepareStatement(nr_u);
+
+            maxtf_st = db.prepareStatement(maxtf_q);
 
 
             for (Map.Entry<String, Integer> entry : hash.entrySet()) {
@@ -212,6 +242,36 @@ public class DBConnector {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                                                               null,
                                                               ex);
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
+
+            if (nr_st != null) {
+                try {
+                    nr_st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
+            if (nr_u_st != null) {
+                try {
+                    nr_u_st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
+            if (maxtf_st != null) {
+                try {
+                    maxtf_st.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+            }
 
         }
     }
