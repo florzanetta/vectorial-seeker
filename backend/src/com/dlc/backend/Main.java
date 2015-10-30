@@ -10,8 +10,8 @@ public class Main {
      */
     public static void main(String[] args) {
         Controller c = new Controller();
-        //c.indexMany("/home/flor/NetBeansProjects/AjaxApp/data");
-        c.test();
+        c.index("/home/flor/Dev/dlc_new/data");
+        // c.test();
     }
 
 }

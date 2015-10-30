@@ -32,7 +32,7 @@ public class Indexer {
                 line = line.replaceAll("\\s+", " ");
                 String[] words = line.toLowerCase().split(regex);
                 for (String word : words) {
-                    if (!"".equals(word)) {
+                    if (!"".equals(word) && word.length() > 1) {
                         if (hash.containsKey(word)) {
                             int value = hash.get(word);
                             hash.put(word, value + 1);
