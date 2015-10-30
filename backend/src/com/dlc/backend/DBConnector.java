@@ -6,6 +6,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.BatchUpdateException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -19,20 +20,23 @@ import java.util.logging.Logger;
 public class DBConnector {
 
     private Connection db;
+    private int document_id;
+    private int term_id;
+    private HashMap<String, Integer> terms;
 
-    public DBConnector() throws ClassNotFoundException {
+    public DBConnector(String db_name, String user, String password) throws ClassNotFoundException {
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();
         } catch (InstantiationException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } catch (IllegalAccessException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         }
-        String url = "jdbc:mysql://localhost/dlc?user=dlcuser&password=dlc";
+        String url = "jdbc:mysql://localhost/" + db_name + "?user=" + user +"&password=" + password;
 
         /*
            Class.forName("org.postgresql.Driver");
@@ -45,59 +49,185 @@ public class DBConnector {
             db.setAutoCommit(false);
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         }
-
+        document_id = getLastId("document");
+        term_id = getLastId("term");
+        terms = new HashMap<String, Integer>();
+        // TODO: we should initialize the terms with the items from the DB
     }
 
+    private int getNextDocumentId() {
+        return document_id++;
+    }
 
-    public void savePost(String path, HashMap<String, Integer> hash) {
-        PreparedStatement st = null;
-        int i = 0;
+    private int getNextTermId() {
+        return term_id++;
+    }
+
+    /**
+     * Get the last id used in a table
+     * @param table
+     * @return the last id used
+     */
+    private int getLastId(String table) {
+        Statement st = null;
+        ResultSet rs = null;
+        int id = 0;
         try {
-            String stm = "insert into post (term, document, freq) "
-                         + "values (?, ?, ?);";
-            st = db.prepareStatement(stm);
+            st = db.createStatement();
+            String stm = "select max(id) from " + table + "; ";
+            rs = st.executeQuery(stm);
+            rs.next();
+            id = rs.getInt(1);
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
+        } finally {
+            try {
+                rs.close();
+                st.close();
+            } catch (SQLException ex) {
+                // ignore
+            }
+        }
+        return id;
+    }
+
+    /**
+     * Get the term ID, first look in terms, if not there, insert it in
+     * the DB
+     * @param term
+     * @return id of the term
+     */
+    private int getTermId(String term) {
+        if (terms.containsKey(term)) {
+            return terms.get(term);
+        } else {
+            int id = this.getNextTermId();
+            // it wasn't in memory, so we add it to the hash
+            terms.put(term, id);
+            // save to database so it can be referenced as a FK
+            String stm_term = "insert into term (id, term) "
+                    + "values (?, ?);";
+            try {
+                PreparedStatement st_term = db.prepareStatement(stm_term);
+                st_term.setInt(1, id);
+                st_term.setString(2, term);
+                st_term.executeUpdate();
+                // db.commit();
+                st_term.close();
+            } catch (BatchUpdateException ex) {
+                System.err.println("Batch too long: \"" + term + "\"");
+            } catch (com.mysql.jdbc.MysqlDataTruncation ex) {
+                System.err.println("Word too long: \"" + term + "\"");
+
+            } catch (SQLException ex) {
+                Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                        null,
+                        ex);
+            }
+            return id;
+        }
+    }
+
+    /**
+     * Save the terms frequency for the document specified
+     * @param path
+     * @param hash 
+     */
+    public void savePost(String path, HashMap<String, Integer> hash) {
+        PreparedStatement st_doc = null;
+        PreparedStatement st_post = null;
+        String word = null;
+        // TODO: should we check if the file was in the index beforehand?
+        int i = 0;
+        String stm_post = "insert into post (term, document, freq) "
+                + "values (?, ?, ?);";
+        String stm_doc = "insert into document (id, document) "
+                + "values (?, ?);";
+
+        try {
+
+            st_doc = db.prepareStatement(stm_doc);
+            st_post = db.prepareStatement(stm_post);
+
+            int doc_id = getNextDocumentId();
+            st_doc.setInt(1, doc_id);
+            st_doc.setString(2, path);
+            st_doc.executeUpdate();
 
             for (Map.Entry<String, Integer> entry : hash.entrySet()) {
 
-                String word = entry.getKey();
+                word = entry.getKey();
                 int freq = entry.getValue();
+                // this will take long at first, but the words will start repeating soon
+                int term_id = this.getTermId(word);
 
-                st.setString(1, word);
-                st.setString(2, path);
-                st.setInt(3, freq);
+                // st_term.setInt(1, term_id);
+                // st_term.setString(2, word);
 
-                st.addBatch();
+                st_post.setInt(1, term_id);
+                st_post.setInt(2, doc_id);
+                st_post.setInt(3, freq);
+
+                // st_doc.addBatch();
+                // st_term.addBatch();
+                st_post.addBatch();
                 if ((i + 1) % 2000 == 0) {
-                    st.executeBatch();
+                    // st_term.executeBatch();
+                    // db.commit();
+                    st_post.executeBatch();
                     // Execute every 2000 items.
                 }
                 i++;
 
             }
-            st.executeBatch();
+            // st_doc.executeBatch();
+            // st_term.executeBatch();
+            // db.commit();
+            st_post.executeBatch();
+        } catch (BatchUpdateException ex) {
+            System.out.println("Key not found for FK term");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } finally {
-            if (st != null) {
-                try {
-                    st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
+            try {
+                st_doc.close();
+                // st_term.close();
+                st_post.close();
+            } catch (SQLException ex) {
+                // ignore
             }
         }
 
     }
-
-
+    
     public void save2File() { }
-
-
+    
+    /**
+     * Enable or disable FK checks in the DBMS
+     * @param fk 
+     */
+    public void setForeignKeyCheck(boolean fk) {
+        try {
+            Statement stmt = db.createStatement();
+            if (fk)
+                stmt.execute("SET FOREIGN_KEY_CHECKS=1");
+            else
+                stmt.execute("SET FOREIGN_KEY_CHECKS=0");
+            stmt.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
+        }
+    }
+    
     public void createIndex() {
         Statement st = null;
         try {
@@ -109,8 +239,8 @@ public class DBConnector {
             System.out.println("CREATE INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } finally {
             if (st != null) {
                 try {
@@ -122,7 +252,6 @@ public class DBConnector {
         }
 
     }
-
 
     public void dropIndex() {
         Statement st = null;
@@ -131,19 +260,19 @@ public class DBConnector {
 
             if (st.executeQuery(
                     "show index from post where Key_name='idx_term';").
-                getFetchSize() != 0) {
+                    getFetchSize() != 0) {
                 st.executeUpdate("drop index idx_term on post;");
             }
             if (st.executeQuery(
                     "show index from post where Key_name='idx_document';").
-                getFetchSize() != 0) {
+                    getFetchSize() != 0) {
                 st.executeUpdate("drop index idx_document on post;");
             }
             System.out.println("DROP INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } finally {
             if (st != null) {
                 try {
@@ -154,7 +283,6 @@ public class DBConnector {
             }
         }
     }
-
 
     public void summarize() {
         Statement st = null;
@@ -167,7 +295,7 @@ public class DBConnector {
                 st.executeUpdate("drop table nr;");
             }
             String stm1 =
-                "create table nr select term, count(*) as nr from post group by term;";
+                    "create table nr select term, count(*) as nr from post group by term;";
             st.executeUpdate(stm1);
 
             // rebuild maxtf table
@@ -175,14 +303,14 @@ public class DBConnector {
                 st.executeUpdate("drop table nr;");
             }
             String stm2 =
-                "create table maxtf select term, max(freq) as maxtf from post group by term;";
+                    "create table maxtf select term, max(freq) as maxtf from post group by term;";
             st.executeUpdate(stm2);
 
             System.out.println("SUMMARIZE");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } finally {
             if (st != null) {
                 try {
@@ -193,7 +321,6 @@ public class DBConnector {
             }
         }
     }
-
 
     public void summarizeSingleFile(HashMap<String, Integer> hash) {
         /* nr
@@ -234,14 +361,14 @@ public class DBConnector {
                 } else {
                     // term doesn't exist, add term
                 }
-
+                // TODO: finish it!
                 //check maxtf
 
             }
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         } finally {
             if (rs != null) {
                 try {
@@ -276,25 +403,23 @@ public class DBConnector {
         }
     }
 
-
     public void commit() {
         try {
             db.commit();
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         }
     }
-
 
     public void close() {
         try {
             db.close();
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                                                              null,
-                                                              ex);
+                    null,
+                    ex);
         }
     }
 
