@@ -19,8 +19,15 @@ JAVAX_SERVLET = 'javax.servlet:javax.servlet-api:jar:3.0.1'
 # Main classes
 backend_main = "com.dlc.backend.Main"
 
+# Database Setup
+DLC_DB = "dlc_db"
+DLC_USER = "dlc"
+DLC_PWD = "dlc"
+
 # Custom tasks
-Project.local_task :clear_tables
+Project.local_task :create_tables
+Project.local_task :setup_db
+Project.local_task :run_mock_server
 
 desc "The Dlc_final project"
 define "dlc_final" do
@@ -33,7 +40,7 @@ define "dlc_final" do
   define 'backend' do
     compile.with MYSQL
     package(:jar).with :manifest=>manifest.merge('Main-Class'=>backend_main)
-        # 'Class-Path'=>'lib/mysql-connector-java.jar')1
+        # 'Class-Path'=>'lib/mysql-connector-java.jar')
   end
 
   desc 'Frontend AJAX web interface'
@@ -47,17 +54,46 @@ define "dlc_final" do
     puts 'running...'
     # puts artifact(MYSQL).to_s
     # puts project('backend').package(:jar).to_s
-    cmd = "java -classpath " + artifact(MYSQL).to_s + ":"
+    cmd = "java -Xdebug -classpath " + artifact(MYSQL).to_s + ":"
     cmd += project('backend').package(:jar).to_s +  " " + backend_main
     puts cmd
     system(cmd)
   end
 
-  task :clear_tables do
-    post_table = 'create table post(term varchar(140), document varchar(500), freq int(11));'
-    system('echo "drop table nr;" | mysql -u dlcuser -pdlc dlc')
-    system('echo "drop table post; ' + post_table + '" | mysql -u dlcuser -pdlc dlc')
-    system('echo "drop table maxtf;" | mysql -u dlcuser -pdlc dlc')
+  task :setup_db do
+    create_user = "CREATE USER '%s'@'%s' IDENTIFIED BY '%s';\n"
+    grant_user = "GRANT ALL PRIVILEGES ON %s.* TO '%s'@'%s' WITH GRANT OPTION;\n"
+
+    cmd = "CREATE DATABASE %s;\n" % DLC_DB
+    cmd += create_user % [DLC_USER, "localhost", DLC_PWD]
+    cmd += grant_user % [DLC_DB, DLC_USER, "localhost"]
+    cmd += create_user % [DLC_USER, "%", DLC_PWD]
+    cmd += grant_user % [DLC_DB, DLC_USER, "%"]
+    puts cmd
+    system('echo "%s" | mysql --user=root -p mysql' % cmd)
+  end
+
+  task :create_tables do
+    doc_table = "create table document(\n\t"\
+        "id INT NOT NULL PRIMARY KEY,\n\t"\
+        "document varchar(200) NOT NULL);\n"
+
+    term_table = "create table term(\n\t"\
+        "id INT NOT NULL PRIMARY KEY,\n\t"\
+        "term varchar(50) NOT NULL);\n"
+
+    post_table = "create table post(\n\t"\
+        "term int NOT NULL,\n\t"\
+        "document int NOT NULL,\n\t"\
+        "freq int(11), \n\t"\
+        "FOREIGN KEY (term) references term(id),\n\t"\
+        "FOREIGN KEY (document) references document(id));\n"
+
+    cmd = "drop table if exists post;\ndrop table if exists document;\ndrop table if exists term;\n"
+    cmd += doc_table + term_table + post_table
+    cmd += "drop table if exists nr;\ndrop table if exists maxtf; "
+    puts cmd
+    system('echo "%s" | mysql -u %s -p%s %s' % [cmd, DLC_USER, DLC_PWD, DLC_DB])
   end
 
 end
