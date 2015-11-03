@@ -119,6 +119,7 @@ public class Controller {
      * @param few
      */
     public void indexFileList(Boolean few) {
+        long start = System.currentTimeMillis();
         int i = 0;
         dbc.setForeignKeyCheck(false);
         for (File file : files_to_index) {
@@ -146,6 +147,8 @@ public class Controller {
         // commit so there are no files uncommited the for ends
         dbc.commit();
         dbc.setForeignKeyCheck(true);
+        long end = System.currentTimeMillis();
+        System.err.println("INDEX: " + (end - start)/1000);
     }
 
     /**

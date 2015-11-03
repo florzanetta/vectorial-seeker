@@ -229,96 +229,88 @@ public class DBConnector {
     }
     
     public void createIndex() {
-        Statement st = null;
-        try {
-            st = db.createStatement();
+        long start = System.currentTimeMillis();
+        try (Statement st = db.createStatement()){
             String stm1 = "create index idx_term on post (term); ";
             String stm2 = "create index idx_document on post (document);";
             st.executeUpdate(stm1);
             st.executeUpdate(stm2);
-            System.out.println("CREATE INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
-        } finally {
-            if (st != null) {
-                try {
-                    st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
         }
-
+        long end = System.currentTimeMillis();
+        System.out.println("CREATE INDEX: " + (end - start)/1000);
     }
 
     public void dropIndex() {
-        Statement st = null;
-        try {
-            st = db.createStatement();
-
-            if (st.executeQuery(
-                    "show index from post where Key_name='idx_term';").
-                    getFetchSize() != 0) {
-                st.executeUpdate("drop index idx_term on post;");
+        long start = System.currentTimeMillis();
+        String idx_term = "show index from post where Key_name='idx_term';";
+        String idx_doc = "show index from post where Key_name='idx_document';";
+        try (Statement st = db.createStatement()) {
+            try (ResultSet rs1 = st.executeQuery(idx_term)) {
+                if (rs1.isBeforeFirst()) {
+                    st.executeUpdate("drop index idx_term on post;");
+                }
             }
-            if (st.executeQuery(
-                    "show index from post where Key_name='idx_document';").
-                    getFetchSize() != 0) {
-                st.executeUpdate("drop index idx_document on post;");
+            try (ResultSet rs2 = st.executeQuery(idx_doc)) {
+                if (rs2.isBeforeFirst()) {
+                    st.executeUpdate("drop index idx_document on post;");
+                }
             }
-            System.out.println("DROP INDEX");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
-        } finally {
-            if (st != null) {
-                try {
-                    st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
         }
+        long end = System.currentTimeMillis();
+        System.err.println("DROP INDEX: " + (end - start)/1000);
     }
 
     public void summarize() {
-        Statement st = null;
-        try {
-            st = db.createStatement();
+        long start = System.currentTimeMillis();
+        ResultSet tables = null;
+        try (Statement st = db.createStatement()) {
             DatabaseMetaData m = db.getMetaData();
-
+            
             // rebuild nr table
-            if (m.getTables(null, null, "nr", null).getFetchSize() != 0) {
+            tables = m.getTables(null, null, "nr", null);
+            if (tables.isBeforeFirst()) {
                 st.executeUpdate("drop table nr;");
             }
-            String stm1 =
-                    "create table nr select term, count(*) as nr from post group by term;";
+            String stm1 = "create table nr select term, count(*) as nr from " +
+                    "post group by term;";
             st.executeUpdate(stm1);
 
             // rebuild maxtf table
-            if (m.getTables(null, null, "maxtf", null).getFetchSize() != 0) {
-                st.executeUpdate("drop table nr;");
+            tables = m.getTables(null, null, "maxtf", null);
+            if (tables.isBeforeFirst()) {
+                st.executeUpdate("drop table maxtf;");
             }
-            String stm2 =
-                    "create table maxtf select term, max(freq) as maxtf from post group by term;";
+            String stm2 = "create table maxtf select term, max(freq) as maxtf " +
+                    "from post group by term;";
             st.executeUpdate(stm2);
-
-            System.out.println("SUMMARIZE");
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
-        } finally {
-            if (st != null) {
-                try {
-                    st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
+        }
+        long end = System.currentTimeMillis();
+        System.err.println("SUMMARIZE: " + (end - start)/1000);
+    }
+    
+    public void removeFileFromNR(int doc_id) {
+        // substract 1 from all the terms in nr that appear in this doc
+        // used when we need to re-index the file
+        try (Statement st = db.createStatement()){
+            String stm = "update nr set nr=nr-1 where term in (select term from "
+                    + "post where document=" + doc_id + ");";
+            st.executeUpdate(stm);
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
         }
     }
 
