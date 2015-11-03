@@ -87,7 +87,7 @@ public class Controller {
         // when listFiles returns here the list is complete
         // we can decide if its a big or small number of files to improve
         // performance
-        if (files_to_index.size() >= many_or_few) {
+        if (files_to_index.size() > many_or_few) {
             this.indexMany();
         } else {
             this.indexFew();
@@ -103,7 +103,7 @@ public class Controller {
         this.indexFileList(false);
         dbc.createIndex();
         dbc.summarize();
-        dbc.close();
+//        dbc.close();
     }
 
     /**
@@ -111,7 +111,7 @@ public class Controller {
      */
     public void indexFew() {
         this.indexFileList(true);
-        dbc.close();
+//        dbc.close();
     }
 
     /**
@@ -157,22 +157,24 @@ public class Controller {
      */
     private void listFiles(File file) throws IOException {
         File[] listOfFiles = file.listFiles();
-
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile()) {
-                if (listOfFiles[i].getName().endsWith(file_extension)) {
-                    //HashMap h = index.indexFile(listOfFiles[i]);
-                    //this.addFile2DB(listOfFiles[i].getCanonicalPath(), h);
-                    // System.out.println(
-                    //     h.keySet().size()+" "+listOfFiles[i].getCanonicalPath());
-                    //index_count++;
-                    files_to_index.add(listOfFiles[i]);
+        if (listOfFiles == null) {
+            files_to_index.add(file);
+        } else {
+            for (int i = 0; i < listOfFiles.length; i++) {
+                if (listOfFiles[i].isFile()) {
+                    if (listOfFiles[i].getName().endsWith(file_extension)) {
+                        //HashMap h = index.indexFile(listOfFiles[i]);
+                        //this.addFile2DB(listOfFiles[i].getCanonicalPath(), h);
+                        // System.out.println(
+                        //     h.keySet().size()+" "+listOfFiles[i].getCanonicalPath());
+                        //index_count++;
+                        files_to_index.add(listOfFiles[i]);
+                    }
+                } else if (listOfFiles[i].isDirectory()) {
+                    this.listFiles(listOfFiles[i]);
                 }
-            } else if (listOfFiles[i].isDirectory()) {
-                this.listFiles(listOfFiles[i]);
             }
         }
-
     }
 
 
