@@ -21,6 +21,7 @@ public class DBConnector {
 
     private Connection db;
     private int document_id;
+    private int starting_doc_id;
     private int term_id;
     private HashMap<String, Integer> terms;
     private HashMap<String, Integer> documents;
@@ -50,6 +51,7 @@ public class DBConnector {
                     ex);
         }
         document_id = getLastId("document");
+        starting_doc_id = document_id;
         term_id = getLastId("term");
         terms = new HashMap<String, Integer>();
         documents = new HashMap<String, Integer>();
@@ -73,27 +75,18 @@ public class DBConnector {
      * @return the last id used
      */
     private int getLastId(String table) {
-        Statement st = null;
-        ResultSet rs = null;
         int id = 0;
-        try {
-            st = db.createStatement();
-            String stm = "select max(id) from " + table + "; ";
-            rs = st.executeQuery(stm);
+        String stm = "select max(id) from " + table + "; ";
+        try (Statement st = db.createStatement(); 
+                ResultSet rs = st.executeQuery(stm)) {
             rs.next();
             id = rs.getInt(1);
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
-        } finally {
-            try {
-                rs.close();
-                st.close();
-            } catch (SQLException ex) {
-                // ignore
-            }
         }
+        System.out.println(table + " starting from ID=" + id);
         return id;
     }
 
@@ -113,13 +106,11 @@ public class DBConnector {
             // save to database so it can be referenced as a FK
             String stm_term = "insert into term (id, term) "
                     + "values (?, ?);";
-            try {
-                PreparedStatement st_term = db.prepareStatement(stm_term);
+            try (PreparedStatement st_term = db.prepareStatement(stm_term)) {
                 st_term.setInt(1, id);
                 st_term.setString(2, term);
                 st_term.executeUpdate();
                 // db.commit();
-                st_term.close();
             } catch (BatchUpdateException ex) {
                 System.err.println("Batch too long: \"" + term + "\"");
             } catch (com.mysql.jdbc.MysqlDataTruncation ex) {
@@ -213,29 +204,21 @@ public class DBConnector {
      * @param hash 
      */
     public void savePost(String path, HashMap<String, Integer> hash) {
-        PreparedStatement st_doc = null;
-        PreparedStatement st_post = null;
-        String word = null;
-        // TODO: should we check if the file was in the index beforehand?
         int i = 0;
         String stm_post = "insert into post (term, document, freq) "
                 + "values (?, ?, ?);";
-        String stm_doc = "insert into document (id, document) "
-                + "values (?, ?);";
 
-        try {
-
-            st_doc = db.prepareStatement(stm_doc);
-            st_post = db.prepareStatement(stm_post);
-
-            int doc_id = getNextDocumentId();
-            st_doc.setInt(1, doc_id);
-            st_doc.setString(2, path);
-            st_doc.executeUpdate();
-
+        try (PreparedStatement st_post = db.prepareStatement(stm_post)) {
+            
+            int doc_id = getDocumentId(path);
+            if (doc_id < document_id || doc_id == starting_doc_id) {
+                // we already indexed this file
+                System.err.println("File already indexed");
+                st_post.addBatch("delete from post where document="+doc_id+";");
+            }
+            
             for (Map.Entry<String, Integer> entry : hash.entrySet()) {
-
-                word = entry.getKey();
+                String word = entry.getKey();
                 int freq = entry.getValue();
                 // this will take long at first, but the words will start 
                 // repeating soon
@@ -261,16 +244,7 @@ public class DBConnector {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
-        } finally {
-            try {
-                st_doc.close();
-                // st_term.close();
-                st_post.close();
-            } catch (SQLException ex) {
-                // ignore
-            }
         }
-
     }
     
     public void save2File() { }
@@ -280,13 +254,11 @@ public class DBConnector {
      * @param fk 
      */
     public void setForeignKeyCheck(boolean fk) {
-        try {
-            Statement stmt = db.createStatement();
+        try (Statement stmt = db.createStatement()){
             if (fk)
                 stmt.execute("SET FOREIGN_KEY_CHECKS=1");
             else
                 stmt.execute("SET FOREIGN_KEY_CHECKS=0");
-            stmt.close();
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
@@ -382,7 +354,7 @@ public class DBConnector {
 
     public void summarizeSingleFile(HashMap<String, Integer> hash) {
         /* nr
-           a cada termino sumarle la freq que encontre en el archivo
+           a cada termino que aparece en el archivo sumarle 1
            maxtf
            revisar si cada term supera la maxima frecuencia y actualizarla
          */
