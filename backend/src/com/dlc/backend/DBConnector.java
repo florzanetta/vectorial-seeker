@@ -23,8 +23,10 @@ public class DBConnector {
     private int document_id;
     private int term_id;
     private HashMap<String, Integer> terms;
+    private HashMap<String, Integer> documents;
 
-    public DBConnector(String db_name, String user, String password) throws ClassNotFoundException {
+    public DBConnector(String db_name, String user, String password) 
+            throws ClassNotFoundException {
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();
         } catch (InstantiationException ex) {
@@ -36,14 +38,9 @@ public class DBConnector {
                     null,
                     ex);
         }
-        String url = "jdbc:mysql://localhost/" + db_name + "?user=" + user +"&password=" + password;
+        String url = "jdbc:mysql://localhost/" + db_name + "?user=" 
+                + user +"&password=" + password;
 
-        /*
-           Class.forName("org.postgresql.Driver");
-           String url = "jdbc:postgresql:dlcdb";
-           String username = "dlc";
-           String password = "dlc";
-         */
         try {
             db = DriverManager.getConnection(url); //, username, password);
             db.setAutoCommit(false);
@@ -55,15 +52,19 @@ public class DBConnector {
         document_id = getLastId("document");
         term_id = getLastId("term");
         terms = new HashMap<String, Integer>();
-        // TODO: we should initialize the terms with the items from the DB
+        documents = new HashMap<String, Integer>();
+        this.rebuildTerms();
+        this.rebuildDocuments();
     }
 
     private int getNextDocumentId() {
-        return document_id++;
+        document_id++;
+        return document_id;
     }
 
     private int getNextTermId() {
-        return term_id++;
+        term_id++;
+        return term_id;
     }
 
     /**
@@ -123,7 +124,34 @@ public class DBConnector {
                 System.err.println("Batch too long: \"" + term + "\"");
             } catch (com.mysql.jdbc.MysqlDataTruncation ex) {
                 System.err.println("Word too long: \"" + term + "\"");
-
+            } catch (SQLException ex) {
+                Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                        null,
+                        ex);
+            }
+            return id;
+        }
+    }
+    
+    public int getDocumentId(String doc) {
+        if (documents.containsKey(doc)) {
+            return documents.get(doc);
+        } else {
+            int id = this.getNextDocumentId();
+            // it wasn't in memory, so we add it to the hash
+            documents.put(doc, id);
+            // save to database so it can be referenced as a FK
+            String stm_doc = "insert into document (id, document) "
+                    + "values (?, ?);";
+            try (PreparedStatement st_doc = db.prepareStatement(stm_doc)) {
+                st_doc.setInt(1, id);
+                st_doc.setString(2, doc);
+                st_doc.executeUpdate();
+                // db.commit();
+            } catch (BatchUpdateException ex) {
+                System.err.println("Batch too long: \"" + doc + "\"");
+            } catch (com.mysql.jdbc.MysqlDataTruncation ex) {
+                System.err.println("Doc too long: \"" + doc + "\"");
             } catch (SQLException ex) {
                 Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                         null,
@@ -133,6 +161,52 @@ public class DBConnector {
         }
     }
 
+    /**
+     * Rebuild the terms hash to get all the term id's from the DB
+     */
+    private void rebuildTerms() {
+        int id;
+        String term;
+        String stm = "select id, term from term";
+        try (Statement st = db.createStatement(); 
+                ResultSet rs = st.executeQuery(stm)) {
+            while (rs.next()) {
+                id = rs.getInt(1);
+                term = rs.getString(2);
+                terms.put(term, id);
+            }
+            
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
+        }
+        System.out.println("Rebuilt terms: " + terms.size());
+    }
+    
+    /**
+     * Rebuild the documents hash to get all the doc id's from the DB
+     */
+    private void rebuildDocuments() {
+        int id;
+        String doc;
+        String stm = "select id, document from document";
+         try (Statement st = db.createStatement(); 
+                ResultSet rs = st.executeQuery(stm)) {
+            while (rs.next()) {
+                id = rs.getInt(1);
+                doc = rs.getString(2);
+                documents.put(doc, id);
+            }
+            
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
+        }
+        System.out.println("Rebuilt documents: " + documents.size());
+    }
+    
     /**
      * Save the terms frequency for the document specified
      * @param path
@@ -163,32 +237,24 @@ public class DBConnector {
 
                 word = entry.getKey();
                 int freq = entry.getValue();
-                // this will take long at first, but the words will start repeating soon
-                int term_id = this.getTermId(word);
+                // this will take long at first, but the words will start 
+                // repeating soon
+                int term = this.getTermId(word);
 
-                // st_term.setInt(1, term_id);
-                // st_term.setString(2, word);
-
-                st_post.setInt(1, term_id);
+                st_post.setInt(1, term);
                 st_post.setInt(2, doc_id);
                 st_post.setInt(3, freq);
 
-                // st_doc.addBatch();
-                // st_term.addBatch();
                 st_post.addBatch();
                 if ((i + 1) % 2000 == 0) {
-                    // st_term.executeBatch();
-                    // db.commit();
                     st_post.executeBatch();
                     // Execute every 2000 items.
                 }
                 i++;
 
-            }
-            // st_doc.executeBatch();
-            // st_term.executeBatch();
-            // db.commit();
+            }            
             st_post.executeBatch();
+
         } catch (BatchUpdateException ex) {
             System.out.println("Key not found for FK term");
         } catch (SQLException ex) {
