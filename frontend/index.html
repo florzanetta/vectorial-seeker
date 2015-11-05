@@ -1,0 +1,108 @@
+<!doctype html>
+<html ng-app="myapp">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>DLC Search!</title>
+</head>
+
+
+<body>
+    <div class="container" ng-controller="FormController">
+
+        <h1>Bienvenido!</h1>
+
+        <form ng-submit="submit()" class="form-horizontal">
+            <div class="form-group">
+                <label for="key" class="col-sm-2 control-label">Ingrese su búsqueda </label>
+                <div class="col-sm-6">
+                    <input ng-model="key" required class="form-control" id="key">
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-offset-4 col-sm-8">
+                    <button type="submit" class="btn btn-primary">Buscar!</button>
+                </div>
+            </div>
+        </form>
+
+        <div ng-show="matched_files" id="results" class="col-md-10">
+            <h2>Archivos encontrados</h2>
+            <ul>
+                <li ng-repeat="file in matched_files"> <a href="file://{{file}}"> {{ file }} </a> </li>
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+    <!-- AngularJS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular-cookies.js"></script>
+
+    <script type="application/javascript">
+        var myapp = angular.module('myapp', ['ngCookies']);
+        myapp.filter('split', function() {
+            return function(input, splitChar, splitIndex) {
+                // do some bounds checking here to ensure it has that index
+                return input.split(splitChar)[splitIndex];
+            }
+        });
+        // myapp.config(['$httpProvider', function($httpProvider) {
+        //     $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+        //     $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+        // }]);
+        myapp.controller("FormController", function($scope, $http) {
+
+            $scope.show_results = function(data) {
+                console.log(data["data"]);
+                $scope.matched_files = data["data"];
+            }
+
+            $scope.log_error = function(err) {
+                console.log("Error!");
+                console.log(err);
+            }
+
+            $scope.submit = function() {
+                console.log($scope.key);
+                $http.get("http://localhost:8080/search?key=" + $scope.key)
+                    .then($scope.show_results, $scope.log_error);
+            }
+
+
+            // $scope.update_table = function(data) {
+            //     $scope.board = data["data"]["rows"];
+            //     //  console.log(data["data"]["rows"]);
+            // }
+            // $scope.log_error = function(xhr, errmsg, err) {
+            //         $('#results').html("<div class='alert-box alert radius'" +
+            //             "data-alert>Oops! We have encountered an error: " + errmsg +
+            //             " <a href='#' class='close'>&times;</a></div>");
+            //         // add the error to the dom
+            //         console.log(xhr.status + ": " + xhr.responseText);
+            // }
+            // data = {
+            //     selected: "td1.2"
+            // };
+            // $http.post('#', data).then($scope.update_table, $scope.log_error);
+            // angular.fromJson();
+
+
+
+
+        });
+    </script>
+
+</body </html>
