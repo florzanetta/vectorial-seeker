@@ -1,0 +1,32 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+sourceCompatibility = 1.7
+version = '1.0'
+mainClassName = 'com.dlc.server.DLCHttpServer'
+
+sourceSets {
+    main {
+        java {
+            srcDir 'backend/src'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'com.google.code.gson:gson:2.4'
+    compile 'mysql:mysql-connector-java:5.1.34'
+    compile 'io.netty:netty-all:5.0.0.Alpha2'
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'DLC Final',
+                   'Implementation-Version': version,
+                   'Main-Class': mainClassName
+    }
+}
