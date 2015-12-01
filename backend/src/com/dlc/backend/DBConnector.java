@@ -1,7 +1,6 @@
 package com.dlc.backend;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,7 +8,6 @@ import java.sql.SQLException;
 import java.sql.BatchUpdateException;
 import java.sql.Statement;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,8 +23,9 @@ public class DBConnector {
     private int term_id;
     private HashMap<String, Integer> terms;
     private HashMap<String, Integer> documents;
+    private HashMap<Integer, String> documents_inverse;
 
-    public DBConnector(String db_name, String user, String password) 
+    public DBConnector(String db_name, String user, String password)
             throws ClassNotFoundException {
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -39,8 +38,8 @@ public class DBConnector {
                     null,
                     ex);
         }
-        String url = "jdbc:mysql://localhost/" + db_name + "?user=" 
-                + user +"&password=" + password;
+        String url = "jdbc:mysql://localhost/" + db_name + "?user="
+                + user + "&password=" + password;
 
         try {
             db = DriverManager.getConnection(url); //, username, password);
@@ -53,10 +52,18 @@ public class DBConnector {
         document_id = getLastId("document");
         starting_doc_id = document_id;
         term_id = getLastId("term");
-        terms = new HashMap<String, Integer>();
-        documents = new HashMap<String, Integer>();
+        terms = new HashMap<>();
+        documents = new HashMap<>();
+        documents_inverse = new HashMap<>();
         this.rebuildTerms();
         this.rebuildDocuments();
+    }
+
+    /**
+     * @return the number of documents in the DB
+     */
+    public int getN() {
+        return document_id;
     }
 
     private int getNextDocumentId() {
@@ -70,6 +77,28 @@ public class DBConnector {
     }
 
     /**
+     *
+     * @param term
+     * @return the number documents where the term appears
+     */
+    public int getNr(String term) {
+        int nr = 0;
+        if (terms.containsKey(term)) {
+            String query = "select nr from nr_view where term=" + terms.get(term) + ";";
+            try (Statement st = db.createStatement();
+                    ResultSet rs = st.executeQuery(query)) {
+                rs.next();
+                nr = rs.getInt(1);
+            } catch (SQLException ex) {
+                Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                        null,
+                        ex);
+            }
+        }
+        return nr;
+    }
+
+    /**
      * Get the last id used in a table
      * @param table
      * @return the last id used
@@ -77,7 +106,7 @@ public class DBConnector {
     private int getLastId(String table) {
         int id = 0;
         String stm = "select max(id) from " + table + "; ";
-        try (Statement st = db.createStatement(); 
+        try (Statement st = db.createStatement();
                 ResultSet rs = st.executeQuery(stm)) {
             rs.next();
             id = rs.getInt(1);
@@ -91,8 +120,8 @@ public class DBConnector {
     }
 
     /**
-     * Get the term ID, first look in terms, if not there, insert it in
-     * the DB
+     * Get the term ID, first look in terms, if not there, insert it in the DB
+     *
      * @param term
      * @return id of the term
      */
@@ -123,7 +152,7 @@ public class DBConnector {
             return id;
         }
     }
-    
+
     public int getDocumentId(String doc) {
         if (documents.containsKey(doc)) {
             return documents.get(doc);
@@ -131,6 +160,7 @@ public class DBConnector {
             int id = this.getNextDocumentId();
             // it wasn't in memory, so we add it to the hash
             documents.put(doc, id);
+            documents_inverse.put(id, doc);
             // save to database so it can be referenced as a FK
             String stm_doc = "insert into document (id, document) "
                     + "values (?, ?);";
@@ -152,6 +182,10 @@ public class DBConnector {
         }
     }
 
+    public String getDocumentPath(int id) {
+        return documents_inverse.get(id);
+    }
+
     /**
      * Rebuild the terms hash to get all the term id's from the DB
      */
@@ -159,14 +193,14 @@ public class DBConnector {
         int id;
         String term;
         String stm = "select id, term from term";
-        try (Statement st = db.createStatement(); 
+        try (Statement st = db.createStatement();
                 ResultSet rs = st.executeQuery(stm)) {
             while (rs.next()) {
                 id = rs.getInt(1);
                 term = rs.getString(2);
                 terms.put(term, id);
             }
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
@@ -174,7 +208,7 @@ public class DBConnector {
         }
         System.out.println("Rebuilt terms: " + terms.size());
     }
-    
+
     /**
      * Rebuild the documents hash to get all the doc id's from the DB
      */
@@ -182,14 +216,15 @@ public class DBConnector {
         int id;
         String doc;
         String stm = "select id, document from document";
-         try (Statement st = db.createStatement(); 
+        try (Statement st = db.createStatement();
                 ResultSet rs = st.executeQuery(stm)) {
             while (rs.next()) {
                 id = rs.getInt(1);
                 doc = rs.getString(2);
                 documents.put(doc, id);
+                documents_inverse.put(id, doc);
             }
-            
+
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
@@ -197,11 +232,32 @@ public class DBConnector {
         }
         System.out.println("Rebuilt documents: " + documents.size());
     }
-    
+
+    public HashMap<Integer, Integer> getPost(String term) {
+        HashMap<Integer, Integer> post = new HashMap<>();
+        if (terms.containsKey(term)) {
+            String query = "select document,freq from post where term="
+                    + terms.get(term) + ";";
+            try (Statement st = db.createStatement();
+                    ResultSet rs = st.executeQuery(query)) {
+                while (rs.next()) {
+                    post.put(rs.getInt(1), rs.getInt(2));
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                        null,
+                        ex);
+            }
+        }
+
+        return post;
+    }
+
     /**
      * Save the terms frequency for the document specified
+     *
      * @param path
-     * @param hash 
+     * @param hash
      */
     public void savePost(String path, HashMap<String, Integer> hash) {
         int i = 0;
@@ -209,14 +265,14 @@ public class DBConnector {
                 + "values (?, ?, ?);";
 
         try (PreparedStatement st_post = db.prepareStatement(stm_post)) {
-            
+
             int doc_id = getDocumentId(path);
             if (doc_id < document_id || doc_id == starting_doc_id) {
                 // we already indexed this file
                 System.err.println("File already indexed");
-                st_post.addBatch("delete from post where document="+doc_id+";");
+                st_post.addBatch("delete from post where document=" + doc_id + ";");
             }
-            
+
             for (Map.Entry<String, Integer> entry : hash.entrySet()) {
                 String word = entry.getKey();
                 int freq = entry.getValue();
@@ -235,7 +291,7 @@ public class DBConnector {
                 }
                 i++;
 
-            }            
+            }
             st_post.executeBatch();
 
         } catch (BatchUpdateException ex) {
@@ -246,29 +302,29 @@ public class DBConnector {
                     ex);
         }
     }
-    
-    public void save2File() { }
-    
+
     /**
      * Enable or disable FK checks in the DBMS
-     * @param fk 
+     *
+     * @param fk
      */
     public void setForeignKeyCheck(boolean fk) {
-        try (Statement stmt = db.createStatement()){
-            if (fk)
+        try (Statement stmt = db.createStatement()) {
+            if (fk) {
                 stmt.execute("SET FOREIGN_KEY_CHECKS=1");
-            else
+            } else {
                 stmt.execute("SET FOREIGN_KEY_CHECKS=0");
+            }
         } catch (SQLException ex) {
             Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
                     null,
                     ex);
         }
     }
-    
+
     public void createIndex() {
         long start = System.currentTimeMillis();
-        try (Statement st = db.createStatement()){
+        try (Statement st = db.createStatement()) {
             String stm1 = "create index idx_term on post (term); ";
             String stm2 = "create index idx_document on post (document);";
             st.executeUpdate(stm1);
@@ -279,7 +335,7 @@ public class DBConnector {
                     ex);
         }
         long end = System.currentTimeMillis();
-        System.out.println("CREATE INDEX: " + (end - start)/1000);
+        System.out.println("CREATE INDEX: " + (end - start) / 1000);
     }
 
     public void dropIndex() {
@@ -303,134 +359,7 @@ public class DBConnector {
                     ex);
         }
         long end = System.currentTimeMillis();
-        System.err.println("DROP INDEX: " + (end - start)/1000);
-    }
-
-    public void summarize() {
-        long start = System.currentTimeMillis();
-        ResultSet tables = null;
-        try (Statement st = db.createStatement()) {
-            DatabaseMetaData m = db.getMetaData();
-            
-            // rebuild nr table
-            tables = m.getTables(null, null, "nr", null);
-            if (tables.isBeforeFirst()) {
-                st.executeUpdate("drop table nr;");
-            }
-            String stm1 = "create table nr select term, count(*) as nr from " +
-                    "post group by term;";
-            st.executeUpdate(stm1);
-
-            // rebuild maxtf table
-            tables = m.getTables(null, null, "maxtf", null);
-            if (tables.isBeforeFirst()) {
-                st.executeUpdate("drop table maxtf;");
-            }
-            String stm2 = "create table maxtf select term, max(freq) as maxtf " +
-                    "from post group by term;";
-            st.executeUpdate(stm2);
-        } catch (SQLException ex) {
-            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                    null,
-                    ex);
-        }
-        long end = System.currentTimeMillis();
-        System.err.println("SUMMARIZE: " + (end - start)/1000);
-    }
-    
-    public void removeFileFromNR(int doc_id) {
-        // substract 1 from all the terms in nr that appear in this doc
-        // used when we need to re-index the file
-        try (Statement st = db.createStatement()){
-            String stm = "update nr set nr=nr-1 where term in (select term from "
-                    + "post where document=" + doc_id + ");";
-            st.executeUpdate(stm);
-        } catch (SQLException ex) {
-            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                    null,
-                    ex);
-        }
-    }
-
-    public void summarizeSingleFile(HashMap<String, Integer> hash) {
-        /* nr
-           a cada termino que aparece en el archivo sumarle 1
-           maxtf
-           revisar si cada term supera la maxima frecuencia y actualizarla
-         */
-        String nr_q = "select nr from nr where term='?';";
-        String nr_u = "update nr set nr=? where term='?';";
-
-        String maxtf_q = "select maxtf from maxtf where term='?';";
-
-        ResultSet rs = null;
-        PreparedStatement nr_st = null;
-        PreparedStatement nr_u_st = null;
-        PreparedStatement maxtf_st = null;
-
-        try {
-            nr_st = db.prepareStatement(nr_q);
-            nr_u_st = db.prepareStatement(nr_u);
-
-            maxtf_st = db.prepareStatement(maxtf_q);
-
-
-            for (Map.Entry<String, Integer> entry : hash.entrySet()) {
-                String term = entry.getKey();
-                int freq = entry.getValue();
-
-                //check nr
-                nr_st.setString(1, term);
-                rs = nr_st.executeQuery();
-                if (rs.getFetchSize() > 0) {
-                    // term exists
-                    int nr = rs.getInt("nr");
-                    nr_u_st.setInt(1, nr + 1);
-                    nr_u_st.setString(2, term);
-                    nr_u_st.executeUpdate();
-                } else {
-                    // term doesn't exist, add term
-                }
-                // TODO: finish it!
-                //check maxtf
-
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                    null,
-                    ex);
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
-
-            if (nr_st != null) {
-                try {
-                    nr_st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
-            if (nr_u_st != null) {
-                try {
-                    nr_u_st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
-            if (maxtf_st != null) {
-                try {
-                    maxtf_st.close();
-                } catch (SQLException ex) {
-                    // ignore
-                }
-            }
-
-        }
+        System.err.println("DROP INDEX: " + (end - start) / 1000);
     }
 
     public void commit() {
@@ -452,6 +381,5 @@ public class DBConnector {
                     ex);
         }
     }
-
 
 }
