@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 public class Controller {
 
     private Indexer index;
+    private Seeker seek;
     private DBConnector dbc;
     private int index_count;
     private int total_indexed;
@@ -54,6 +55,7 @@ public class Controller {
         
         try {
             dbc = new DBConnector(db_name, db_user, db_pwd);
+            seek = new Seeker(dbc);
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null,
                                                              ex);
@@ -67,7 +69,7 @@ public class Controller {
     public void test() {
         //dbc.dropIndex();
         //dbc.createIndex();
-        dbc.summarize();
+        //dbc.summarize();
     }
 
     /**
@@ -98,18 +100,18 @@ public class Controller {
      * The number of files to index is bigger than many_or_few so we will 
      * benefit from dropping the indexes and regenerating them.
      */
-    public void indexMany() {
+    private void indexMany() {
         dbc.dropIndex();
         this.indexFileList(false);
         dbc.createIndex();
-        dbc.summarize();
+//        dbc.summarize();
 //        dbc.close();
     }
 
     /**
      * Index less than many_or_few files so don't drop any indexes
      */
-    public void indexFew() {
+    private void indexFew() {
         this.indexFileList(true);
 //        dbc.close();
     }
@@ -149,6 +151,10 @@ public class Controller {
         dbc.setForeignKeyCheck(true);
         long end = System.currentTimeMillis();
         System.err.println("INDEX: " + (end - start)/1000);
+    }
+
+    public ArrayList<Post> search(String keyword) {
+        return seek.search(keyword);
     }
 
     /**

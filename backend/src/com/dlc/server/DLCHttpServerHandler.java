@@ -6,6 +6,7 @@
 package com.dlc.server;
 
 import com.dlc.backend.Controller;
+import com.dlc.backend.Post;
 import com.google.gson.Gson;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -59,7 +60,7 @@ public class DLCHttpServerHandler extends ChannelHandlerAdapter {
         if (req.method() == HttpMethod.GET) {
             String keyword = params.get("key").get(0);
             System.out.println("searching for: " + keyword);
-            ArrayList<String> matched_files;
+            ArrayList<Post> matched_files;
             matched_files = c.search(keyword);
             
             writeResponse(ctx, gson.toJson(matched_files));
