@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,7 +20,7 @@ public class Controller {
     private int index_count;
     private int total_indexed;
     private ArrayList<File> files_to_index;
-    private final int many_or_few = 100;
+    private final int many_or_few = 50;
     private String file_extension;
     private String db_name, db_user, db_pwd;
 
@@ -46,7 +48,7 @@ public class Controller {
      */
     public Controller(String ext, String db, String user, String pwd) {
         file_extension = ext;
-        index = new Indexer();
+        index = new Indexer();        
         index_count = 0;
         total_indexed = 0;
         db_name = db;
@@ -75,10 +77,13 @@ public class Controller {
     /**
      * Index path and everything under it if its a directory
      * @param path
+     * @return 
      */
-    public void index(String path) {
+    public List<String>[] index(String path) {
+//        create view nr_view as select term, count(*) as nr from post group by term;
+        
         File f = new File(path);
-        files_to_index = new ArrayList<File>();
+        files_to_index = new ArrayList<>();
         // first, make a list of the files to index
         try {
             this.listFiles(f);
@@ -86,71 +91,61 @@ public class Controller {
             Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null,
                                                              ex);
         }
+        
         // when listFiles returns here the list is complete
         // we can decide if its a big or small number of files to improve
         // performance
+        List<String>[] results;
         if (files_to_index.size() > many_or_few) {
-            this.indexMany();
+            // if the list is longer than the limit, it's better to drop 
+            // the index and recreate it later
+            dbc.dropIndex();
+            results = this.indexFileList();
+            dbc.createIndex();
         } else {
-            this.indexFew();
+            results = this.indexFileList();
         }
-    }
-
-    /**
-     * The number of files to index is bigger than many_or_few so we will 
-     * benefit from dropping the indexes and regenerating them.
-     */
-    private void indexMany() {
-        dbc.dropIndex();
-        this.indexFileList(false);
-        dbc.createIndex();
-//        dbc.summarize();
-//        dbc.close();
-    }
-
-    /**
-     * Index less than many_or_few files so don't drop any indexes
-     */
-    private void indexFew() {
-        this.indexFileList(true);
-//        dbc.close();
+        
+        return results;
     }
 
     /**
      * Index the files in files_to_index and save the posts in the DB
-     * @param few
+     * 
      */
-    public void indexFileList(Boolean few) {
+    private List<String>[] indexFileList() {
         long start = System.currentTimeMillis();
+        ArrayList<String> errors = new ArrayList<>();
+        ArrayList<String> indexed = new ArrayList<>();
         int i = 0;
         dbc.setForeignKeyCheck(false);
         for (File file : files_to_index) {
             try {
                 HashMap<String, Integer> h = index.indexFile(file);
-                dbc.savePost(file.getCanonicalPath(), h);
-                System.out.println(
-                    h.keySet().size() + " " + file.getCanonicalPath());
+                String path = file.getCanonicalPath();
+                dbc.savePost(path, h);
+//                System.out.println(
+//                    h.keySet().size() + " " + file.getCanonicalPath());
+                indexed.add(path);
                 index_count++;
-                if (few) {
-                    dbc.summarizeSingleFile(h);
-                } else {
-                    i++;
-                    if (i % 1000 == 0) {
-                        dbc.commit();
-                        // Execute every 1000 items.
-                    }
+                i++;
+                if (i % 1000 == 0) {
+                    dbc.commit();
+                    // Execute every 1000 items.
                 }
             } catch (IOException ex) {
-                Logger.getLogger(Controller.class.getName()).log(Level.SEVERE,
-                                                                 null,
-                                                                 ex);
+                System.err.println("Error indexing file: " + file);
+                errors.add(file.getPath());
+                files_to_index.remove(file.getPath());
             }
         } //end for
         // commit so there are no files uncommited the for ends
         dbc.commit();
         dbc.setForeignKeyCheck(true);
         long end = System.currentTimeMillis();
-        System.err.println("INDEX: " + (end - start)/1000);
+        System.err.println("INDEX: " + (end - start) / 1000);
+        List[] ar = {indexed, errors};
+        return ar;
     }
 
     public ArrayList<Post> search(String keyword) {
@@ -184,6 +179,10 @@ public class Controller {
                 }
             }
         }
+    }
+
+    public Set<String> getIndexedFiles() {
+        return dbc.getIndexedFiles();
     }
 
 

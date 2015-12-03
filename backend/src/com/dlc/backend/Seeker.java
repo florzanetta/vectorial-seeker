@@ -1,14 +1,8 @@
 package com.dlc.backend;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -24,6 +18,10 @@ public class Seeker {
     }
     
     public ArrayList<Post> search(String keyword) {
+        int files_to_match = 10;
+        
+        long search_start = System.currentTimeMillis();
+        
         /*
         Este hash tiene todos los terminos de la busqueda y su nr
         */
@@ -39,7 +37,7 @@ public class Seeker {
         for (String term : search_terms.keySet()) {
             HashMap<Integer, Integer> post = db.getPost(term);
             for (int doc : post.keySet()) {
-                System.out.println("TERM: " + term + " DOC: " + doc);
+                // System.out.println("TERM: " + term + " DOC: " + doc);
                 double w = this.get_weight(post.get(doc), search_terms.get(term));
                 if (documents.containsKey(doc)) {
                     documents.get(doc).addWeight(w);
@@ -56,10 +54,14 @@ public class Seeker {
         int i = 0;
         ArrayList<Post> matched_files = new ArrayList<>();
         
-        for (Iterator<Post> it = relevant_docs.descendingIterator(); it.hasNext() && i<10; i++) {
+        for (Iterator<Post> it = relevant_docs.descendingIterator(); 
+                it.hasNext() && i<files_to_match; i++) {
             matched_files.add(it.next());
         }
  
+        long search_time = System.currentTimeMillis() - search_start;
+        System.out.println("search took: " + search_time/1000 + "s");
+        
         return matched_files;
     }
     

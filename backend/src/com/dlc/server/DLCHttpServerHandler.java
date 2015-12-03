@@ -22,10 +22,9 @@ import io.netty.handler.codec.http.HttpMethod;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.HttpVersion.*;
 import io.netty.handler.codec.http.QueryStringDecoder;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,15 +43,23 @@ public class DLCHttpServerHandler extends ChannelHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (msg instanceof HttpRequest) {
-            handleHttpRequest(ctx, (HttpRequest) msg);
+            this.handleHttpRequest(ctx, (HttpRequest) msg);
         }
     }
 
     private void handleHttpRequest(ChannelHandlerContext ctx, HttpRequest req) {
         QueryStringDecoder uri = new QueryStringDecoder(req.uri());
         Map<String, List<String>> params = uri.parameters();
-        if (uri.path().equals("/search")) {
-            doSearch(ctx, req, params);
+        switch (uri.path()) {
+            case "/search":
+                this.doSearch(ctx, req, params);
+                break;
+            case "/index":
+                this.doIndex(ctx, req, params);
+                break;
+            case "/files":
+                this.getAllFiles(ctx, req, params);
+                break;
         }
     }
 
@@ -60,10 +67,30 @@ public class DLCHttpServerHandler extends ChannelHandlerAdapter {
         if (req.method() == HttpMethod.GET) {
             String keyword = params.get("key").get(0);
             System.out.println("searching for: " + keyword);
-            ArrayList<Post> matched_files;
-            matched_files = c.search(keyword);
+            ArrayList<Post> matched_files = c.search(keyword);
             
             writeResponse(ctx, gson.toJson(matched_files));
+        }
+    }
+    
+    private void doIndex(ChannelHandlerContext ctx, HttpRequest req, Map<String, List<String>> params) {
+        if (req.method() == HttpMethod.GET) {
+            String file = params.get("file").get(0);
+            System.out.println("indexing file: " + file);
+            HashMap<String, List> response = new HashMap<>();
+            List<String>[] results = c.index(file);
+
+            String json = "{ \"indexed\": " + gson.toJson(results[0])
+                    + ", \"errors\": " + gson.toJson(results[1]) + " }";
+            
+            writeResponse(ctx, json);
+        }
+    }
+    
+    private void getAllFiles(ChannelHandlerContext ctx, HttpRequest req, Map<String, List<String>> params) {
+        if (req.method() == HttpMethod.GET) {
+                        
+            writeResponse(ctx, gson.toJson(c.getIndexedFiles()));
         }
     }
 

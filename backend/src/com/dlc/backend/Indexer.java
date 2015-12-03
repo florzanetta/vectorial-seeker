@@ -21,9 +21,9 @@ public class Indexer {
     }
 
 
-    public HashMap<String, Integer> indexFile(File file) {
+    public HashMap<String, Integer> indexFile(File file) throws IOException {
         hash.clear();
-        try {
+//        try {
             BufferedReader in = new BufferedReader(new FileReader(file));
             String line = in.readLine();
             while (line != null) {
@@ -44,13 +44,13 @@ public class Indexer {
                 //read a new line for the next loop
                 line = in.readLine();
             }
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(Indexer.class.getName()).log(Level.SEVERE, null,
-                                                          ex);
-        } catch (IOException ex) {
-            Logger.getLogger(Indexer.class.getName()).log(Level.SEVERE, null,
-                                                          ex);
-        }
+//        } catch (FileNotFoundException ex) {
+//            Logger.getLogger(Indexer.class.getName()).log(Level.SEVERE, null,
+//                                                          ex);
+//        } catch (IOException ex) {
+//            Logger.getLogger(Indexer.class.getName()).log(Level.SEVERE, null,
+//                                                          ex);
+//        }
         return hash;
     }
 

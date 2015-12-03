@@ -9,6 +9,7 @@ import java.sql.BatchUpdateException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -74,6 +75,10 @@ public class DBConnector {
     private int getNextTermId() {
         term_id++;
         return term_id;
+    }
+    
+    public Set<String> getIndexedFiles() {
+        return documents.keySet();
     }
 
     /**
