@@ -64,14 +64,13 @@ public class Controller {
         }
 
     }
-
-    /**
-     * Developer's function to run tests without touching the index function
-     */
-    public void test() {
-        //dbc.dropIndex();
-        //dbc.createIndex();
-        //dbc.summarize();
+    
+    public ArrayList<Post> search(String keyword) {
+        return seek.search(keyword);
+    }
+    
+    public Set<String> getIndexedFiles() {
+        return dbc.getIndexedFiles();
     }
 
     /**
@@ -79,9 +78,7 @@ public class Controller {
      * @param path
      * @return 
      */
-    public List<String>[] index(String path) {
-//        create view nr_view as select term, count(*) as nr from post group by term;
-        
+    public List<String>[] index(String path) {        
         File f = new File(path);
         files_to_index = new ArrayList<>();
         // first, make a list of the files to index
@@ -124,8 +121,6 @@ public class Controller {
                 HashMap<String, Integer> h = index.indexFile(file);
                 String path = file.getCanonicalPath();
                 dbc.savePost(path, h);
-//                System.out.println(
-//                    h.keySet().size() + " " + file.getCanonicalPath());
                 indexed.add(path);
                 index_count++;
                 i++;
@@ -143,13 +138,9 @@ public class Controller {
         dbc.commit();
         dbc.setForeignKeyCheck(true);
         long end = System.currentTimeMillis();
-        System.err.println("INDEX: " + (end - start) / 1000);
+        System.err.println("index took: " + (end - start));
         List[] ar = {indexed, errors};
         return ar;
-    }
-
-    public ArrayList<Post> search(String keyword) {
-        return seek.search(keyword);
     }
 
     /**
@@ -167,11 +158,6 @@ public class Controller {
             for (int i = 0; i < listOfFiles.length; i++) {
                 if (listOfFiles[i].isFile()) {
                     if (listOfFiles[i].getName().endsWith(file_extension)) {
-                        //HashMap h = index.indexFile(listOfFiles[i]);
-                        //this.addFile2DB(listOfFiles[i].getCanonicalPath(), h);
-                        // System.out.println(
-                        //     h.keySet().size()+" "+listOfFiles[i].getCanonicalPath());
-                        //index_count++;
                         files_to_index.add(listOfFiles[i]);
                     }
                 } else if (listOfFiles[i].isDirectory()) {
@@ -179,10 +165,6 @@ public class Controller {
                 }
             }
         }
-    }
-
-    public Set<String> getIndexedFiles() {
-        return dbc.getIndexedFiles();
     }
 
 
