@@ -30,3 +30,66 @@ jar {
                    'Main-Class': mainClassName
     }
 }
+
+task get_deps(type: Copy) {
+  from sourceSets.main.runtimeClasspath
+  into 'libs/'
+}
+
+// The task loads and registers a JDBC driver for database access
+// It expects the following properties:
+// * JDBC_DRIVER_NAME:   for instance oracle.jdbc.OracleDriver
+// * JDBC_ARCHIVE_PATH:  path to the JDBC driver archive
+task loadDriver << {
+    URLClassLoader loader = GroovyObject.class.classLoader
+    loader.addURL(file(JDBC_ARCHIVE_PATH).toURL())
+    java.sql.DriverManager.registerDriver(loader.loadClass(JDBC_DRIVER_NAME).newInstance())
+}
+
+task create_db(dependsOn: loadDriver) << {
+    println "Please enter the parameters to create the database for the system"
+    def db = System.console().readLine '\nEnter the Database name: '
+    def usr = System.console().readLine 'Enter the User name: '
+    def pwd = System.console().readLine 'Enter the Password: '
+    def rpwd = System.console().readPassword 'Enter root\'s MYSQL password: '
+
+    def sql = groovy.sql.Sql.newInstance("jdbc:mysql://localhost/", "root", rpwd)
+
+    sql.execute(("CREATE DATABASE " + db + ";"))
+    sql.execute(("CREATE USER '" + usr + "'@'localhost' IDENTIFIED BY '" + pwd + "';"))
+    sql.execute(("GRANT ALL PRIVILEGES ON " + db + ".* TO '" + usr + "'@'localhost' WITH GRANT OPTION;"))
+    sql.execute(("CREATE USER '" + usr + "'@'%' IDENTIFIED BY '" + pwd + "';"))
+    sql.execute(("GRANT ALL PRIVILEGES ON " + db + ".* TO '" + usr + "'@'%' WITH GRANT OPTION;"))
+
+    println "Please add now these parameters into gradle.properties"
+}
+
+task create_tables(dependsOn: loadDriver) << {
+    println "Connecting to database '$DB_URL' with user '$DB_USERNAME' ..."
+    def sql = groovy.sql.Sql.newInstance(DB_URL, DB_USERNAME, DB_PASSWORD)
+
+    def doc_table = '''create table document(
+           id INT NOT NULL PRIMARY KEY,
+           document varchar(200) NOT NULL);'''
+
+    def term_table = '''create table term(
+           id INT NOT NULL PRIMARY KEY,
+           term varchar(50) NOT NULL);'''
+
+    def post_table = '''create table post(
+           term int NOT NULL,
+           document int NOT NULL,
+           freq int(11),
+           FOREIGN KEY (term) references term(id),
+           FOREIGN KEY (document) references document(id));'''
+
+    println doc_table
+    println term_table
+    println post_table
+    sql.execute("drop table if exists post")
+    sql.execute("drop table if exists term")
+    sql.execute("drop table if exists document")
+    sql.execute(doc_table)
+    sql.execute(term_table)
+    sql.execute(post_table)
+}
