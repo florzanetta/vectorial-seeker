@@ -85,21 +85,34 @@ public class DBConnector {
      *
      * @param term
      * @return the number documents where the term appears
-     */
-    public int getNr(String term) {
-        int nr = 0;
-        if (terms.containsKey(term)) {
-            String query = "select nr from nr_view where term=" + terms.get(term) + ";";
-            try (Statement st = db.createStatement();
-                    ResultSet rs = st.executeQuery(query)) {
-                rs.next();
-                nr = rs.getInt(1);
-            } catch (SQLException ex) {
-                Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
-                        null,
-                        ex);
+     */    
+    public HashMap<String, Integer> getNr(String[] search) {
+        HashMap<String, Integer> nr = new HashMap<>();
+        HashMap<Integer, String> inversed_terms = new HashMap<>();
+
+        for (String term : search) {
+            if (terms.containsKey(term)) {
+                inversed_terms.put(terms.get(term), term);
             }
         }
+        
+        String qterm = inversed_terms.keySet().toString();
+        qterm = qterm.substring(1, qterm.length() -1);
+        
+        String query = "select term,count(document) from post where term in ("
+                + qterm + ") group by term;";
+
+        try (Statement st = db.createStatement();
+                ResultSet rs = st.executeQuery(query)) {
+            while(rs.next()) {
+                nr.put(inversed_terms.get(rs.getInt(1)), rs.getInt(2));
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(DBConnector.class.getName()).log(Level.SEVERE,
+                    null,
+                    ex);
+        }
+        
         return nr;
     }
 
@@ -238,6 +251,12 @@ public class DBConnector {
         System.out.println("Rebuilt documents: " + documents.size());
     }
 
+    /**
+     * Get the post table for all documents that contain the term
+     * @param term
+     * @return a HashMap that matches the id of the document to the 
+     * frequency of the term in it
+     */
     public HashMap<Integer, Integer> getPost(String term) {
         HashMap<Integer, Integer> post = new HashMap<>();
         if (terms.containsKey(term)) {
