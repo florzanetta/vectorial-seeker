@@ -76,16 +76,18 @@ public class DBConnector {
         term_id++;
         return term_id;
     }
-    
+
     public Set<String> getIndexedFiles() {
         return documents.keySet();
     }
 
     /**
+     * Get the number of documents where each search term appears
      *
-     * @param term
-     * @return the number documents where the term appears
-     */    
+     * @param search array of strings with the search terms
+     * @return a HashMap where the key is the term and the value is the
+     *  number of documents where the term appears
+     */
     public HashMap<String, Integer> getNr(String[] search) {
         HashMap<String, Integer> nr = new HashMap<>();
         HashMap<Integer, String> inversed_terms = new HashMap<>();
@@ -95,16 +97,16 @@ public class DBConnector {
                 inversed_terms.put(terms.get(term), term);
             }
         }
-        
+
         String qterm = inversed_terms.keySet().toString();
-        qterm = qterm.substring(1, qterm.length() -1);
-        
+        qterm = qterm.substring(1, qterm.length() - 1);
+
         String query = "select term,count(document) from post where term in ("
                 + qterm + ") group by term;";
 
         try (Statement st = db.createStatement();
                 ResultSet rs = st.executeQuery(query)) {
-            while(rs.next()) {
+            while (rs.next()) {
                 nr.put(inversed_terms.get(rs.getInt(1)), rs.getInt(2));
             }
         } catch (SQLException ex) {
@@ -112,12 +114,13 @@ public class DBConnector {
                     null,
                     ex);
         }
-        
+
         return nr;
     }
 
     /**
      * Get the last id used in a table
+     *
      * @param table
      * @return the last id used
      */
@@ -253,9 +256,10 @@ public class DBConnector {
 
     /**
      * Get the post table for all documents that contain the term
+     *
      * @param term
-     * @return a HashMap that matches the id of the document to the 
-     * frequency of the term in it
+     * @return a HashMap that matches the id of the document to the frequency of
+     * the term in it
      */
     public HashMap<Integer, Integer> getPost(String term) {
         HashMap<Integer, Integer> post = new HashMap<>();

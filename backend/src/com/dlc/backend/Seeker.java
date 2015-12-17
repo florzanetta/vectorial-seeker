@@ -20,17 +20,14 @@ public class Seeker {
 
         long search_start = System.currentTimeMillis();
 
-        /*
-         Este hash tiene todos los terminos de la busqueda y su nr
-         */
         search_terms = this.split_search_terms(keyword);
 
+        // hash to relate the terms with the number of docs where they appear
         HashMap<String, Integer> nr = db.getNr(search_terms);
 
         /*
-         para cada termino en la busqueda, 
-         calcular el peso de cada documento que lo contiene
-         luego, mostrar los n documentos con mayor peso
+        for each term in the search, calculate the weight of each document
+        that it appears in, then sort the documents to send to the frontend
          */
         HashMap<Integer, Post> documents = new HashMap<>();
 
@@ -49,7 +46,7 @@ public class Seeker {
 
         ArrayList<Post> matched_files = new ArrayList<>(documents.values());
         Collections.sort(matched_files);
-        
+
         long search_time = System.currentTimeMillis() - search_start;
         System.out.println("search took: " + search_time + "ms");
 
