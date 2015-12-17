@@ -24,7 +24,6 @@ import static io.netty.handler.codec.http.HttpVersion.*;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.util.CharsetUtil;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -77,7 +76,6 @@ public class DLCHttpServerHandler extends ChannelHandlerAdapter {
         if (req.method() == HttpMethod.GET) {
             String file = params.get("file").get(0);
             System.out.println("indexing file: " + file);
-            HashMap<String, List> response = new HashMap<>();
             List<String>[] results = c.index(file);
 
             String json = "{ \"indexed\": " + gson.toJson(results[0])
@@ -89,7 +87,6 @@ public class DLCHttpServerHandler extends ChannelHandlerAdapter {
     
     private void getAllFiles(ChannelHandlerContext ctx, HttpRequest req, Map<String, List<String>> params) {
         if (req.method() == HttpMethod.GET) {
-                        
             writeResponse(ctx, gson.toJson(c.getIndexedFiles()));
         }
     }

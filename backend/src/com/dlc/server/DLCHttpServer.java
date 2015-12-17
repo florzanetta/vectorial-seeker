@@ -18,10 +18,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.AttributeKey;
 
-/**
- * An HTTP server that sends back the content of the received HTTP request
- * in a pretty plaintext form.
- */
+
 public final class DLCHttpServer {
 
     static final boolean SSL = System.getProperty("ssl") != null;
