@@ -11,244 +11,256 @@
 
 
 <body>
-    <div class="container" ng-controller="FormController">
+<div class="container" ng-controller="FormController">
 
-        <div class="col-md-4">
-            <div class="jumbotron">
-                <h1>Buscar!</h1>
-                <!-- <p>Ingrese su busqueda</p> -->
-                <form ng-submit="submit()" class="form-horizontal center-block">
-                    <div class="form-group">
-                        <!-- <label for="key" class="col-sm-2 control-label">Ingrese su búsqueda </label> -->
-                        <div>
-                            <input ng-model="key" required class="form-control" id="key">
-                        </div>
+    <div class="col-md-4">
+        <div class="jumbotron">
+            <h1>Buscar!</h1>
+            <!-- <p>Ingrese su busqueda</p> -->
+            <form ng-submit="submit()" class="form-horizontal center-block">
+                <div class="form-group">
+                    <!-- <label for="key" class="col-sm-2 control-label">Ingrese su búsqueda </label> -->
+                    <div>
+                        <input ng-model="key" required class="form-control" id="key">
                     </div>
-                    <div class="form-group">
-                        <div class="text-center">
-                            <button type="submit" class="btn btn-primary btn-lg" ng-disabled="waiting">
-                                Buscar!</button>
-                        </div>
+                </div>
+                <div class="form-group">
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg" ng-disabled="waiting">
+                            Buscar!
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- <p>Agregue mas archivos al indice</p> -->
+            <!-- <p class="text-center"> -->
+            <div class="btn-group-vertical center-block" role="group">
+
+                <!-- Button trigger modal -->
+                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#myModal">
+                    Indexar archivos
+                </button>
+                <button type="button" class="btn btn-success" ng-click="get_all_files()" data-toggle="modal"
+                        data-target="#myModal2">
+                    Ver archivos indexados
+                </button>
+            </div>
+            <!-- </p> -->
+
+        </div>
+
+    </div>
+    <br>
+
+    <div class="col-md-8">
+
+        <div class="alert alert-success alert-dismissible" ng-show="indexed_files.length > 0" role="alert">
+            <button type="button" ng-click="dismiss_success()" class="close" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <strong>Se indexaron los siguientes archivos</strong>
+
+            <ul>
+                <li ng-repeat="ifile in indexed_files"><a href="file://{{ifile}}"> {{ifile}} </a>
+                </li>
+            </ul>
+
+        </div>
+
+
+        <div class="alert alert-warning alert-dismissible" ng-show="error_files.length > 0" role="alert">
+            <button type="button" ng-click="dismiss_error()" class="close" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <strong>Se encontraron errores indexando los siguientes archivos</strong>
+
+            <ul>
+                <li ng-repeat="efile in error_files"> {{efile}}
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="container col-md-8" ng-hide="matched_files == null || matched_files.length == 0" id="results">
+
+        <h2> {{matched_files.length}} archivos encontrados con "{{search}}" </h2>
+
+        <div class="clearfix">
+            <table class="table table-hover">
+                <!-- <tr ng-repeat="file in matched_files.slice().reverse()"> -->
+                <!-- <tr ng-repeat="file in matched_files | orderBy:'-weight'"> -->
+                <tr ng-repeat="file in matched_files">
+                    <td style="border-top: none" class="text-center">
+                        <span class="label label-primary">{{file.weight|number:0}}</span>
+                    </td>
+                    <td style="border-top: none"><a href="file://{{file.doc}}">{{ file.doc }}</a></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="col-md-8" ng-show="matched_files != null && matched_files.length == 0">
+        <h2>No se encontro ningun archivo con "{{search}}" </h2>
+    </div>
+
+    <div ng-show="waiting" class="col-md-1 col-md-offset-2">
+        <br>
+        <div class="throbber-loader">
+            Loading…
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" my-modal id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">Indexar archivos</h4>
+                </div>
+                <form ng-submit="index()">
+                    <div class="modal-body">
+                        <!-- <input type="file" webkitdirectory directory multiple accept=".txt"> -->
+                        <p>Ingrese el path del archivo o directorio</p>
+                        <p>
+                            <input ng-model="file" class="col-md-6">
+                        </p>
+                        <br>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" data-toggle="modal" class="btn btn-primary">Indexar!</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
 
-                <!-- <p>Agregue mas archivos al indice</p> -->
-                <!-- <p class="text-center"> -->
-                    <div class="btn-group-vertical center-block" role="group">
-
-                    <!-- Button trigger modal -->
-                    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#myModal">
-                        Indexar archivos
+    <!-- Modal2 -->
+    <div class="modal fade" id="myModal2" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
                     </button>
-                    <button type="button" class="btn btn-success" ng-click="get_all_files()" data-toggle="modal" data-target="#myModal2">
-                        Ver archivos indexados
-                    </button>
-                    </div>
-                <!-- </p> -->
-
-            </div>
-
-        </div>
-        <br>
-
-        <div class="col-md-8">
-
-            <div class="alert alert-success alert-dismissible" ng-show="indexed_files.length > 0" role="alert">
-                <button type="button" ng-click="dismiss_success()" class="close" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                <strong>Se indexaron los siguientes archivos</strong>
-
-                <ul>
-                    <li ng-repeat="ifile in indexed_files"> <a href="file://{{ifile}}"> {{ifile}} </a>
-                    </li>
-                </ul>
-
-            </div>
-
-
-            <div class="alert alert-warning alert-dismissible" ng-show="error_files.length > 0" role="alert">
-                <button type="button" ng-click="dismiss_error()" class="close" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                <strong>Se encontraron errores indexando los siguientes archivos</strong>
-
-                <ul>
-                    <li ng-repeat="efile in error_files"> {{efile}}
-                    </li>
-                </ul>
-            </div>
-
-        </div>
-
-        <div class="container col-md-8" ng-hide="matched_files == null || matched_files.length == 0" id="results">
-
-            <h2> {{matched_files.length}} archivos encontrados con "{{search}}" </h2>
-
-            <div class="clearfix">
-                <table class="table table-hover">
-                    <tr ng-repeat="file in matched_files">
-                        <td style="border-top: none" class="text-center">
-                            <span class="label label-primary">{{file.weight|number:0}}</span>
-                        </td>
-                        <td style="border-top: none"> <a href="file://{{file.doc}}">{{ file.doc }}</a> </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="col-md-8" ng-show="matched_files != null && matched_files.length == 0">
-            <h2>No se encontro ningun archivo con "{{search}}" </h2>
-        </div>
-
-        <div ng-show="waiting" class="col-md-1 col-md-offset-2">
-            <br>
-            <div class="throbber-loader">
-                Loading…
-            </div>
-        </div>
-
-        <!-- Modal -->
-        <div class="modal fade" my-modal id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                        <h4 class="modal-title" id="myModalLabel">Indexar archivos</h4>
-                    </div>
-                    <form ng-submit="index()">
-                        <div class="modal-body">
-                            <!-- <input type="file" webkitdirectory directory multiple accept=".txt"> -->
-                            <p>Ingrese el path del archivo o directorio</p>
-                            <p>
-                                <input ng-model="file" class="col-md-6">
-                            </p>
-                            <br>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
-                            <button type="submit" data-toggle="modal" class="btn btn-primary">Indexar!</button>
-                        </div>
-                    </form>
+                    <h4 class="modal-title" id="myModalLabel">Archivos Indexados ({{all_files.length}})</h4>
+                </div>
+                <div class="modal-body">
+                    <ul>
+                        <li ng-repeat="afile in all_files"><a href="file://{{afile}}"> {{afile}} </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modal2 -->
-        <div class="modal fade" id="myModal2" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                        <h4 class="modal-title" id="myModalLabel">Archivos Indexados ({{all_files.length}})</h4>
-                    </div>
-                        <div class="modal-body">
-                            <ul>
-                                <li ng-repeat="afile in all_files"> <a href="file://{{afile}}"> {{afile}} </a>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
-                        </div>
-                </div>
-            </div>
-        </div>
+</div>
 
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<!-- Bootstrap -->
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"
+      integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ=="
+      crossorigin="anonymous">
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css"
+      integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"
+        integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ=="
+        crossorigin="anonymous"></script>
+<!-- AngularJS -->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular-cookies.js"></script>
+<!-- CSS Spinner -->
+<link rel="stylesheet" href="http://css-spinners.com/css/spinner/throbber.css" type="text/css">
 
-        <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-        <!-- Bootstrap -->
-        <!-- Latest compiled and minified CSS -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
-        <!-- Optional theme -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
-        <!-- Latest compiled and minified JavaScript -->
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
-        <!-- AngularJS -->
-        <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.js"></script>
-        <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular-cookies.js"></script>
-        <!-- CSS Spinner -->
-        <link rel="stylesheet" href="http://css-spinners.com/css/spinner/throbber.css" type="text/css">
+<script type="application/javascript">
+    var myapp = angular.module('myapp', ['ngCookies']);
+    myapp.filter('split', function () {
+        return function (input, splitChar, splitIndex) {
+            // do some bounds checking here to ensure it has that index
+            return input.split(splitChar)[splitIndex];
+        }
+    });
 
-        <script type="application/javascript">
-            var myapp = angular.module('myapp', ['ngCookies']);
-            myapp.filter('split', function() {
-                return function(input, splitChar, splitIndex) {
-                    // do some bounds checking here to ensure it has that index
-                    return input.split(splitChar)[splitIndex];
-                }
-            });
+    myapp.directive('myModal', function () {
+        return {
+            restrict: 'A',
+            link: function (scope, element, attr) {
+                scope.dismiss = function () {
+                    element.modal('hide');
+                };
+            }
+        }
+    });
 
-            myapp.directive('myModal', function() {
-                return {
-                    restrict: 'A',
-                    link: function(scope, element, attr) {
-                        scope.dismiss = function() {
-                            element.modal('hide');
-                        };
-                    }
-                }
-            });
+    myapp.controller("FormController", function ($scope, $http) {
 
-            myapp.controller("FormController", function($scope, $http) {
+        $scope.show_results = function (data) {
+            // console.log(data["data"]);
+            $scope.waiting = false;
+            $scope.matched_files = data["data"];
+        }
 
-                $scope.show_results = function(data) {
-                    // console.log(data["data"]);
-                    $scope.waiting = false;
-                    $scope.matched_files = data["data"];
-                }
+        $scope.log_error = function (err) {
+            console.log("Error!");
+            console.log(err);
+        }
 
-                $scope.log_error = function(err) {
-                    console.log("Error!");
-                    console.log(err);
-                }
+        $scope.submit = function () {
+            console.log($scope.key);
+            $scope.search = angular.copy($scope.key);
+            $scope.matched_files = null;
+            $scope.waiting = true;
+            $http.get("http://localhost:8080/search?key=" + $scope.key)
+                    .then($scope.show_results, $scope.log_error);
+        }
 
-                $scope.submit = function() {
-                    console.log($scope.key);
-                    $scope.search = angular.copy($scope.key);
-                    $scope.matched_files = null;
-                    $scope.waiting = true;
-                    $http.get("http://localhost:8080/search?key=" + $scope.key)
-                        .then($scope.show_results, $scope.log_error);
-                }
+        $scope.index_results = function (data) {
+            console.log(data["data"]);
+            $scope.indexed_files = data["data"].indexed;
+            $scope.error_files = data["data"].errors;
+            // console.log($scope.indexed_files.errors);
+        }
 
-                $scope.index_results = function(data) {
-                    console.log(data["data"]);
-                    $scope.indexed_files = data["data"].indexed;
-                    $scope.error_files = data["data"].errors;
-                    // console.log($scope.indexed_files.errors);
-                }
+        $scope.index = function () {
+            console.log($scope.file);
+            $scope.dismiss();
+            $http.get("http://localhost:8080/index?file=" + $scope.file)
+                    .then($scope.index_results, $scope.log_error);
+        }
 
-                $scope.index = function() {
-                    console.log($scope.file);
-                    $scope.dismiss();
-                    $http.get("http://localhost:8080/index?file=" + $scope.file)
-                        .then($scope.index_results, $scope.log_error);
-                }
+        $scope.dismiss_error = function () {
+            $scope.error_files = null;
+        }
 
-                $scope.dismiss_error = function() {
-                    $scope.error_files = null;
-                }
+        $scope.dismiss_success = function () {
+            $scope.indexed_files = null;
+        }
 
-                $scope.dismiss_success = function() {
-                    $scope.indexed_files = null;
-                }
+        $scope.show_all_files = function (data) {
+            $scope.all_files = data["data"];
+        }
 
-                $scope.show_all_files = function(data) {
-                    $scope.all_files = data["data"];
-                }
+        $scope.get_all_files = function () {
+            $http.get("http://localhost:8080/files")
+                    .then($scope.show_all_files, $scope.log_error);
+        }
 
-                $scope.get_all_files = function() {
-                    $http.get("http://localhost:8080/files")
-                        .then($scope.show_all_files, $scope.log_error);
-                }
+    });
+</script>
 
-            });
-        </script>
+</body>
 
-</body </html>
+</html>
