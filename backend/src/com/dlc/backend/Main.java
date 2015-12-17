@@ -1,5 +1,9 @@
 package com.dlc.backend;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 /**
  * @author flor
  */
@@ -10,8 +14,12 @@ public class Main {
      */
     public static void main(String[] args) {
         Controller c = new Controller();
-        c.index("/home/flor/Dev/dlc_new/data");
-        // c.test();
+        List<String>[] index = c.index("/path/to/file");
+        System.out.println(index);
+        ArrayList<Post> search = c.search("term");
+        System.out.println(search);
+        Set<String> indexedFiles = c.getIndexedFiles();
+        System.out.println(indexedFiles);
     }
 
 }
